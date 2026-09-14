@@ -1,0 +1,31 @@
+[project]
+authors = [{name = "Ethan Shanahan", email = "97416981+ethan-shanahan@users.noreply.github.com"}]
+dependencies = []
+name = "uav-rul-ebm"
+requires-python = ">= 3.11"
+version = "0.1.0"
+# dynamic = ["version"]
+
+[build-system]
+requires = ["setuptools>=64"] #, "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+# [tool.setuptools_scm]
+# version_file = "src/_version.py"
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = [{ platform = "win-64", cuda = "13.0" }]
+
+[tool.pixi.pypi-dependencies]
+uav_rul_ebm = { path = ".", editable = true }
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+numpy = ">=2.5.3,<3"
+pandas = ">=3.0.5,<4"
+matplotlib = ">=3.11.1,<4"
+seaborn = ">=0.13.2,<0.14"
+scikit-learn = ">=1.9.1,<2"
+pytorch-gpu = ">=2.13.0,<3"
+marimo = ">=0.24.0,<0.25"
