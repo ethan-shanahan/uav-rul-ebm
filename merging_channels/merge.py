@@ -17,12 +17,12 @@ def run_merge():
         df = pd.read_csv(input_csv[i])
 
         #columns to merge
-        merge0 = ["telemetry_25", "telemetry_28"]
-        merge1 = ["telemetry_06", "telemetry_11", "telemetry_12"]
-        merge2 = ["telemetry_15", "telemetry_23"]
-        merge3 = ["telemetry_24", "telemetry_26"]
-        merge4 = ["telemetry_19", "telemetry_21"]
-        merge5 = ["telemetry_13", "telemetry_22"]
+        merge0 = ["telemetry_15", "telemetry_23"]
+        merge1 = ["telemetry_24", "telemetry_26"]
+        merge2 = ["telemetry_25", "telemetry_28"]
+        merge3 = ["telemetry_06", "telemetry_11", "telemetry_12"]
+        merge4 = ["telemetry_13", "telemetry_22"]
+        merge5 = ["telemetry_19", "telemetry_21"]
 
         merges = [merge0, merge1, merge2, merge3, merge4, merge5]
 

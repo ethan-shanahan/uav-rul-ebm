@@ -65,7 +65,7 @@ def run_flattening():
 
         #ema
         if variant == 5:
-            alpha = 0.05  # flattening factor, lower = stronger
+            alpha = 0.01  # flattening factor, lower = stronger
             for col in telemetry_cols:
                 for uav in df["uav_id"].unique():
                     mask = df["uav_id"] == uav
