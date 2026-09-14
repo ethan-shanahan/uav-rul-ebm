@@ -10,8 +10,12 @@ def run_flattening():
                  os.path.join(base, "..", "data", "merged", "merged_test.csv")]
     output_csv = [os.path.join(base, "..", "data", "flattened", "flattened_train.csv"),
                   os.path.join(base, "..", "data", "flattened", "flattened_test.csv")]
+    output_pre = [os.path.join(base, "..", "data", "preprocessed", "preprocessed_train.csv"),
+                  os.path.join(base, "..", "data", "preprocessed", "preprocessed_test.csv")]
     output_png = [os.path.join(base, "flattened_train.png"),
                   os.path.join(base, "flattened_test.png")]
+    output_png_pre = [os.path.join(base, "..", "data", "preprocessed", "preprocessed_train.png"),
+                  os.path.join(base, "..", "data", "preprocessed", "preprocessed_test.png")]
 
     for i in range(len(input_csv)):
         df = pd.read_csv(input_csv[i])
@@ -70,6 +74,7 @@ def run_flattening():
                     df_smooth.loc[mask, col] = series.ewm(alpha=alpha).mean().values
 
         df_smooth.to_csv(output_csv[i], index=False)
+        df_smooth.to_csv(output_pre[i], index=False)
 
 
         # === Plotten ===
@@ -101,6 +106,7 @@ def run_flattening():
 
         plt.tight_layout()
         plt.savefig(output_png[i], dpi=300, bbox_inches="tight")
+        plt.savefig(output_png_pre[i], dpi=300, bbox_inches="tight")
         #plt.show()
         print("Flattening ", i+1, " of 2 complete")
 

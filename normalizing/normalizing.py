@@ -106,7 +106,7 @@ def run_normalize():
         plt.tight_layout()
         plt.savefig(output_png[i], dpi=300, bbox_inches="tight")
         #plt.show()
-        print("Normalisation ", i+1 ," of 2 complete\n")
+        print("Normalisation ", i+1 ," of 2 complete")
 
 if __name__ == "__main__":
     run_normalize()

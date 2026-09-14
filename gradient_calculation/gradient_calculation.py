@@ -10,8 +10,12 @@ def run_gradient():
                  os.path.join(base, "..", "data", "flattened", "flattened_test.csv")]
     output_csv = [os.path.join(base, "..", "data", "gradient", "gradient_train.csv"),
                   os.path.join(base, "..", "data", "gradient", "gradient_test.csv")]
+    output_pre = [os.path.join(base, "..", "data", "preprocessed", "gradient_train.csv"),
+                  os.path.join(base, "..", "data", "preprocessed", "gradient_test.csv")]
     output_png = [os.path.join(base, "gradient_train.png"),
                   os.path.join(base, "gradient_test.png")]
+    output_png_pre = [os.path.join(base, "..", "data", "preprocessed", "gradient_train.png"),
+                      os.path.join(base, "..", "data", "preprocessed", "gradient_test.png")]
 
     for i in range(len(input_csv)):
         # CSV laden
@@ -27,7 +31,7 @@ def run_gradient():
             df_grad[f"{col}_grad"] = np.gradient(df_grad[col].values)
 
         df_grad.to_csv(output_csv[i], index=False)
-
+        df_grad.to_csv(output_pre[i], index=False)
 
 
         # === Plotten ===
@@ -58,6 +62,7 @@ def run_gradient():
 
         plt.tight_layout()
         plt.savefig(output_png[i], dpi=300, bbox_inches="tight")
+        plt.savefig(output_png_pre[i], dpi=300, bbox_inches="tight")
         #plt.show()
         print("Gradient ", i+1, " of 2 complete")
 
