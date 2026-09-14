@@ -1,53 +1,64 @@
+import pickle
+import random
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import torch
+from sklearn.model_selection import GroupShuffleSplit
+from sklearn.pipeline import Pipeline
 
-REQUIRED_ID_COLUMNS = {"uav_id", "flight_cycle"}
-
-
-def telemetry_columns(frame: pd.DataFrame) -> list[str]:
-    return sorted(column for column in frame.columns if "telemetry" in column)
-
-
-def load_csv(path: str | Path, *, require_target: bool = False) -> pd.DataFrame:
-    """Load and validate one UAV trajectory CSV."""
-    path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"Data file does not exist: {path}")
-
-    frame = pd.read_csv(path)
-    missing = REQUIRED_ID_COLUMNS - set(frame.columns)
-    if missing:
-        raise ValueError(f"{path} is missing required columns: {sorted(missing)}")
-    if require_target and "RUL" not in frame.columns:
-        raise ValueError("Training data is missing required target column: RUL")
-    telemetry = [column for column in frame.columns if column.startswith("telemetry_")]
-    if not telemetry:
-        raise ValueError(f"{path} contains no telemetry columns")
-    return frame
+from uav_rul_ebm.config import Config
 
 
-def downsample(df: pd.DataFrame, is_prototype=False) -> pd.DataFrame:
-    if not is_prototype:
-        return df
-    # Fast stride sampling (takes every 100th row while preserving trajectory order)
-    return df.iloc[::100]
+def seed_everything(seed: int) -> None:
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
-def disp(is_prototype=False) -> None:
-    if is_prototype:
-        plt.show()
-
-
-def load_data(
-    train_path: Path, test_path: Path, is_prototype=False
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    train = downsample(
-        load_csv(train_path, require_target=True).assign(split="train"), is_prototype
+def split_by_uav(
+    frame: pd.DataFrame, validation_size: float, seed: int
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    splitter = GroupShuffleSplit(
+        n_splits=1, test_size=validation_size, random_state=seed
     )
-    test = downsample(load_csv(test_path).assign(split="test"), is_prototype)
-    categories = ["uav_id", "split"]
-    train[categories] = train[categories].astype("category")
-    test[categories] = test[categories].astype("category")
-    return pd.concat([train, test], ignore_index=True), train, test
+    train_indices, validation_indices = next(
+        splitter.split(frame, groups=frame["uav_id"])
+    )
+    return frame.iloc[train_indices].copy(), frame.iloc[validation_indices].copy()
+
+
+def final_targets(frame: pd.DataFrame) -> np.ndarray:
+    """Return one endpoint target per UAV in first-seen order."""
+    return np.asarray(
+        [
+            group.sort_values("flight_cycle")["RUL"].iloc[-1]
+            for _, group in frame.groupby("uav_id", sort=False)
+        ]
+    )
+
+
+def save_pipeline(path: Path, pipeline: Pipeline, config: Config) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("wb") as file:
+        pickle.dump(
+            {
+                "pipeline": pipeline,
+                "model_kind": config.model_kind,
+                "window_size": config.window_size,
+            },
+            file,
+        )
+
+
+def load_pipeline(path: Path, config: Config) -> Pipeline:
+    with path.open("rb") as file:
+        bundle = pickle.load(file)
+    if bundle["model_kind"] != config.model_kind:
+        raise ValueError("Saved artifact uses a different model_kind")
+    if bundle["window_size"] != config.window_size:
+        raise ValueError("Saved artifact uses a different window_size")
+    return bundle["pipeline"]

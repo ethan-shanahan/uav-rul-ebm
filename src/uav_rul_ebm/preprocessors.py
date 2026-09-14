@@ -7,6 +7,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.experimental import enable_iterative_imputer  # noqa: F401
 from sklearn.impute import IterativeImputer
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 class VarianceThreshold(BaseEstimator, TransformerMixin):
@@ -22,7 +23,7 @@ class VarianceThreshold(BaseEstimator, TransformerMixin):
         self.metadata_cols: tuple[str, ...] = metadata_cols
         self.feature_cols_: list[str] | None = None
         self.cols_to_keep_: list[str] | None = None
-        self.v_: bool = verbose
+        self.verbose: bool = verbose
 
     def fit(self, X: pd.DataFrame, y: pd.Series | np.ndarray | None = None) -> Self:
         """Learn which non-metadata columns have sufficient variance."""
@@ -45,7 +46,7 @@ class VarianceThreshold(BaseEstimator, TransformerMixin):
 
         cols_to_transform = [c for c in self.cols_to_keep_ if c in X.columns]
 
-        if self.v_:
+        if self.verbose:
             print(
                 f"VarianceThreshold:\n\tDropped Columns: {[c for c in X.columns if c not in X[cols_to_transform].columns]}"
             )
@@ -68,11 +69,11 @@ class VerticalHampelFilter(BaseEstimator, TransformerMixin):
         self.n_sigmas: float = n_sigmas
         self.id_col: str = id_col
         self.metadata_cols: tuple[str, ...] = metadata_cols
-        self.v_: bool = verbose
+        self.verbose: bool = verbose
 
     def fit(self, X: pd.DataFrame, y: pd.Series | np.ndarray | None = None) -> Self:
         """Record the feature columns to process during transformation."""
-        self.feature_cols_ = [c for c in X.columns if c not in self.metadata_cols]
+        self.feature_cols_ = [c for c in X.columns if c.startswith("telemetry_")]
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
@@ -119,7 +120,7 @@ class VerticalHampelFilter(BaseEstimator, TransformerMixin):
             scale = 1.4826 * mad
             diff = (X_out[col] - med).abs()
             is_outlier = (scale > 1e-6) & (diff > self.n_sigmas * scale)
-            if self.v_:
+            if self.verbose:
                 print(f"Feature: {col}\n\tScale: {scale}\tOutliers: {is_outlier.sum()}")
                 is_outlier.to_csv(
                     f"./data/outliers/a/train/{col}.csv"
@@ -147,7 +148,7 @@ class HorizontalHampelFilter(BaseEstimator, TransformerMixin):
         self.n_sigmas: float = n_sigmas
         self.id_col: str = id_col
         self.metadata_cols: tuple[str, ...] = metadata_cols
-        self.v_: bool = verbose
+        self.verbose: bool = verbose
 
     def fit(self, X: pd.DataFrame, y: pd.Series | np.ndarray | None = None) -> Self:
         """Record the feature columns to process during transformation."""
@@ -174,7 +175,7 @@ class HorizontalHampelFilter(BaseEstimator, TransformerMixin):
             diff = (init_windows - med).abs()
             is_outlier = (scale > 1e-6) & (diff > self.n_sigmas * scale)
 
-            if self.v_:
+            if self.verbose:
                 print(
                     f"Feature: {col}\n\tFaulty UAVs: {init_windows[is_outlier].index.tolist()}"
                 )
@@ -200,7 +201,7 @@ class HGBIImputer(BaseEstimator, TransformerMixin):
         self.metadata_cols: tuple[str, ...] = metadata_cols
         self.imputer_: IterativeImputer | None = None
         self.feature_cols_: list[str] | None = None
-        self.v_: bool = verbose
+        self.verbose: bool = verbose
 
     def fit(self, X: pd.DataFrame, y: pd.Series | np.ndarray | None = None) -> Self:
         """Fit the HistGB iterative imputer on the available feature columns."""
@@ -247,14 +248,49 @@ class HGBIImputer(BaseEstimator, TransformerMixin):
         return X_out
 
 
+class TelemetryStandardScaler(BaseEstimator, TransformerMixin):
+    """Standardize telemetry columns while preserving trajectory metadata."""
+
+    def __init__(
+        self,
+        metadata_cols: tuple[str, ...] = ("uav_id", "flight_cycle", "RUL"),
+    ) -> None:
+        self.metadata_cols = metadata_cols
+
+    def fit(self, X: pd.DataFrame, y: pd.Series | np.ndarray | None = None) -> Self:
+        """Fit a standard scaler on telemetry columns only."""
+        self.feature_cols_ = [c for c in X.columns if c not in self.metadata_cols]
+        if not self.feature_cols_:
+            raise ValueError("No telemetry columns available for scaling")
+        self.scaler_ = StandardScaler().fit(X[self.feature_cols_])
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Return scaled telemetry and untouched metadata."""
+        if not hasattr(self, "feature_cols_") or not hasattr(self, "scaler_"):
+            raise RuntimeError(
+                "TelemetryStandardScaler must be fitted before transform"
+            )
+        missing = [c for c in self.feature_cols_ if c not in X.columns]
+        if missing:
+            raise ValueError(f"Missing fitted feature columns: {missing}")
+        X_out = X.copy()
+        X_out[self.feature_cols_] = self.scaler_.transform(X_out[self.feature_cols_])
+        return X_out
+
+
 if __name__ == "__main__":
     TRAIN_PATH = "./data/raw/train.csv"
     TEST_PATH = "./data/raw/test.csv"
     train_df = pd.read_csv(TRAIN_PATH)
     test_df = pd.read_csv(TEST_PATH)
-    pl = Pipeline(
+
+    pipe = Pipeline(
         [
-            ("variance threshold", VarianceThreshold(verbose=True)),
+            (
+                "variance threshold",
+                VarianceThreshold(verbose=True),
+            ),
             (
                 "outlier nullifier",
                 VerticalHampelFilter(rolling_window_size=30, n_sigmas=5, verbose=False),
@@ -263,9 +299,13 @@ if __name__ == "__main__":
                 "defect nullifier",
                 HorizontalHampelFilter(init_window_size=40, n_sigmas=5, verbose=False),
             ),
-            ("imputer", HGBIImputer()),
+            (
+                "imputer",
+                HGBIImputer(),
+            ),
         ],
         verbose=True,
     )
-    train = pl.fit_transform(train_df)
-    test = pl.transform(test_df)
+
+    train = pipe.fit_transform(train_df)
+    test = pipe.transform(test_df)
