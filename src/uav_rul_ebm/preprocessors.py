@@ -1,3 +1,5 @@
+from typing import Self
+
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -7,21 +9,23 @@ from sklearn.impute import IterativeImputer
 from sklearn.pipeline import Pipeline
 
 
-# 1. Custom VarianceThreshold Wrapper (preserves DataFrame and metadata)
 class VarianceThreshold(BaseEstimator, TransformerMixin):
+    """Drop non-metadata columns whose sample variance is below a threshold."""
+
     def __init__(
         self,
-        threshold=1e-8,
-        metadata_cols=("uav_id", "flight_cycle", "RUL"),
-        verbose=False,
-    ):
-        self.threshold = threshold
-        self.metadata_cols = metadata_cols
-        self.feature_cols_ = None
-        self.cols_to_keep_ = None
-        self.v_ = verbose
+        threshold: float = 1e-8,
+        metadata_cols: tuple[str, ...] = ("uav_id", "flight_cycle", "RUL"),
+        verbose: bool = False,
+    ) -> None:
+        self.threshold: float = threshold
+        self.metadata_cols: tuple[str, ...] = metadata_cols
+        self.feature_cols_: list[str] | None = None
+        self.cols_to_keep_: list[str] | None = None
+        self.v_: bool = verbose
 
-    def fit(self, X, y=None):
+    def fit(self, X: pd.DataFrame, y: pd.Series | np.ndarray | None = None) -> Self:
+        """Learn which non-metadata columns have sufficient variance."""
         feat_cols = [c for c in X.columns if c not in self.metadata_cols]
         variances = X[feat_cols].var()
         self.feature_cols_ = variances[variances > self.threshold].index.tolist()
@@ -30,7 +34,8 @@ class VarianceThreshold(BaseEstimator, TransformerMixin):
         ]
         return self
 
-    def transform(self, X):
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Return a copy containing metadata and retained feature columns."""
         if self.feature_cols_ is None or self.cols_to_keep_ is None:
             raise RuntimeError("VarianceThreshold must be fitted before transform")
 
@@ -48,27 +53,30 @@ class VarianceThreshold(BaseEstimator, TransformerMixin):
         return X[cols_to_transform].copy()
 
 
-# Nullifies telemetries' outliers
 class VerticalHampelFilter(BaseEstimator, TransformerMixin):
+    """Replace point outliers with missing values within each UAV trajectory."""
+
     def __init__(
         self,
-        rolling_window_size=30,
-        n_sigmas=5.0,
-        id_col="uav_id",
-        metadata_cols=("uav_id", "flight_cycle", "RUL"),
-        verbose=False,
-    ):
-        self.rolling_window_size = rolling_window_size
-        self.n_sigmas = n_sigmas
-        self.id_col = id_col
-        self.metadata_cols = metadata_cols
-        self.v_ = verbose
+        rolling_window_size: int = 30,
+        n_sigmas: float = 5.0,
+        id_col: str = "uav_id",
+        metadata_cols: tuple[str, ...] = ("uav_id", "flight_cycle", "RUL"),
+        verbose: bool = False,
+    ) -> None:
+        self.rolling_window_size: int = rolling_window_size
+        self.n_sigmas: float = n_sigmas
+        self.id_col: str = id_col
+        self.metadata_cols: tuple[str, ...] = metadata_cols
+        self.v_: bool = verbose
 
-    def fit(self, X, y=None):
+    def fit(self, X: pd.DataFrame, y: pd.Series | np.ndarray | None = None) -> Self:
+        """Record the feature columns to process during transformation."""
         self.feature_cols_ = [c for c in X.columns if c not in self.metadata_cols]
         return self
 
-    def transform(self, X: pd.DataFrame):
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Replace rolling Hampel outliers with ``NaN`` values."""
         if not hasattr(self, "feature_cols_"):
             raise RuntimeError("VerticalHampelFilter must be fitted before transform")
 
@@ -124,27 +132,32 @@ class VerticalHampelFilter(BaseEstimator, TransformerMixin):
         return X_out
 
 
-# Nullifies faulty telemetry channels for UAVs
 class HorizontalHampelFilter(BaseEstimator, TransformerMixin):
+    """Replace telemetry channels from faulty UAVs with missing values."""
+
     def __init__(
         self,
-        init_window_size=10,
-        n_sigmas=3.0,
-        id_col="uav_id",
-        metadata_cols=("uav_id", "flight_cycle", "RUL"),
-        verbose=False,
-    ):
-        self.init_window_size = init_window_size
-        self.n_sigmas = n_sigmas
-        self.id_col = id_col
-        self.metadata_cols = metadata_cols
-        self.v_ = verbose
+        init_window_size: int = 10,
+        n_sigmas: float = 3.0,
+        id_col: str = "uav_id",
+        metadata_cols: tuple[str, ...] = ("uav_id", "flight_cycle", "RUL"),
+        verbose: bool = False,
+    ) -> None:
+        self.init_window_size: int = init_window_size
+        self.n_sigmas: float = n_sigmas
+        self.id_col: str = id_col
+        self.metadata_cols: tuple[str, ...] = metadata_cols
+        self.v_: bool = verbose
 
-    def fit(self, X, y=None):
-        self.feature_cols_ = [c for c in X.columns if c not in self.metadata_cols]
+    def fit(self, X: pd.DataFrame, y: pd.Series | np.ndarray | None = None) -> Self:
+        """Record the feature columns to process during transformation."""
+        self.feature_cols_: list[str] = [
+            c for c in X.columns if c not in self.metadata_cols
+        ]
         return self
 
-    def transform(self, X: pd.DataFrame):
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Replace channels with anomalous initial trajectory medians with ``NaN``."""
         if not hasattr(self, "feature_cols_"):
             raise RuntimeError("HorizontalHampelFilter must be fitted before transform")
 
@@ -172,23 +185,25 @@ class HorizontalHampelFilter(BaseEstimator, TransformerMixin):
         return X_out
 
 
-# 3. Iterative HistGB Imputer Wrapper
 class HGBIImputer(BaseEstimator, TransformerMixin):
+    """Interpolate trajectories, then impute remaining gaps with HistGB models."""
+
     def __init__(
         self,
-        max_iter=5,
-        random_state=42,
-        metadata_cols=("uav_id", "flight_cycle", "RUL"),
-        verbose=False,
-    ):
-        self.max_iter = max_iter
-        self.random_state = random_state
-        self.metadata_cols = metadata_cols
-        self.imputer_ = None
-        self.feature_cols_ = None
-        self.v_ = verbose
+        max_iter: int = 5,
+        random_state: int = 42,
+        metadata_cols: tuple[str, ...] = ("uav_id", "flight_cycle", "RUL"),
+        verbose: bool = False,
+    ) -> None:
+        self.max_iter: int = max_iter
+        self.random_state: int = random_state
+        self.metadata_cols: tuple[str, ...] = metadata_cols
+        self.imputer_: IterativeImputer | None = None
+        self.feature_cols_: list[str] | None = None
+        self.v_: bool = verbose
 
-    def fit(self, X, y=None):
+    def fit(self, X: pd.DataFrame, y: pd.Series | np.ndarray | None = None) -> Self:
+        """Fit the HistGB iterative imputer on the available feature columns."""
         self.feature_cols_ = [c for c in X.columns if c not in self.metadata_cols]
         self.imputer_ = IterativeImputer(
             estimator=HistGradientBoostingRegressor(random_state=self.random_state),
@@ -198,23 +213,27 @@ class HGBIImputer(BaseEstimator, TransformerMixin):
         self.imputer_.fit(X[self.feature_cols_])
         return self
 
-    def _interpolate_by_trajectory(self, X):
+    def _interpolate_by_trajectory(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Interpolate missing feature values independently per UAV trajectory."""
+        if self.feature_cols_ is None:
+            raise RuntimeError("HGBIImputer must be fitted before interpolation")
+
+        feature_cols = self.feature_cols_
         X_out = X.copy()
         if self.metadata_cols and "uav_id" in X_out.columns:
             order = X_out.sort_values(["uav_id", "flight_cycle"]).index
             ordered = X_out.loc[order]
-            ordered[self.feature_cols_] = ordered.groupby("uav_id", sort=False)[
-                self.feature_cols_
+            ordered[feature_cols] = ordered.groupby("uav_id", sort=False)[
+                feature_cols
             ].transform(lambda series: series.interpolate(limit_direction="both"))
-            X_out.loc[order, self.feature_cols_] = ordered[self.feature_cols_]
+            X_out.loc[order, feature_cols] = ordered[feature_cols]
             return X_out
 
-        X_out[self.feature_cols_] = X_out[self.feature_cols_].interpolate(
-            limit_direction="both"
-        )
+        X_out[feature_cols] = X_out[feature_cols].interpolate(limit_direction="both")
         return X_out
 
-    def transform(self, X):
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Interpolate and impute missing values using the fitted estimator."""
         if self.imputer_ is None or self.feature_cols_ is None:
             raise RuntimeError("HGBIImputer must be fitted before transform")
 
