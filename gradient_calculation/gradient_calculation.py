@@ -18,7 +18,7 @@ def run_gradient():
     output_png_pre = [os.path.join(base, "..", "data", "preprocessed", "gradient_train.png"),
                       os.path.join(base, "..", "data", "preprocessed", "gradient_test.png")]
 
-    mode = "ema"  # "moderate" oder "ema"
+    mode = "no"  # "moderate" oder "ema" oder "no"
     use_fit = False  # Fit aktivieren oder deaktivieren
 
     def smooth_gradient(grad, mode):
@@ -31,6 +31,7 @@ def run_gradient():
             alpha = 0.1
             return pd.Series(grad).ewm(alpha=alpha, adjust=False).mean().values
 
+
         return grad
 
     for i in range(len(input_csv)):
@@ -38,7 +39,8 @@ def run_gradient():
         df = pd.read_csv(input_csv[i])
 
         # Telemetry-Spalten
-        merge_cols = [f"merge_{j}" for j in range(6)]       #number of merge colums, to see in merge.py
+        #merge_cols = [f"merge_{j}" for j in range(6)]       #number of merge colums, to see in merge.py
+        merge_cols = [col for col in df.columns if col.startswith("merge_")]
 
         df_grad = df.copy()
 

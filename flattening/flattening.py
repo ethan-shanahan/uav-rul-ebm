@@ -6,8 +6,8 @@ import os
 def run_flattening():
     print("\nStart flattening")
     base = os.path.dirname(__file__)
-    input_csv = [os.path.join(base, "..", "data", "merged", "merged_train.csv"),
-                 os.path.join(base, "..", "data", "merged", "merged_test.csv")]
+    input_csv = [os.path.join(base, "..", "data", "merged", "merged_train.csv"), #"merged", "merged_train.csv"),
+                 os.path.join(base, "..", "data", "merged", "merged_test.csv")]  #"merged", "merged_test.csv")]
     output_csv = [os.path.join(base, "..", "data", "flattened", "flattened_train.csv"),
                   os.path.join(base, "..", "data", "flattened", "flattened_test.csv")]
     output_pre = [os.path.join(base, "..", "data", "preprocessed", "preprocessed_train.csv"),
@@ -23,9 +23,13 @@ def run_flattening():
         telemetry_cols = [col for col in df.columns if col.startswith("merge_")]
 
         window = 5   # flattening window
-        variant = 5  #choosing flattening variation 1-5
+        variant = 0  #choosing flattening variation 0-5
 
         df_smooth = df.copy()
+
+        #variant 0 no flattening
+        if variant == 0:
+            print("no flattening will be applied")
 
         #variant 1 average
         if variant == 1:
@@ -55,7 +59,7 @@ def run_flattening():
         if variant == 4:
             from scipy.signal import butter, filtfilt
 
-            b, a = butter(N=3, Wn=0.05, btype='low', output='ba')  # Order 3 (higher = stronger, but maye oscillation),
+            b, a = butter(N=3, Wn=0.1, btype='low', output='ba')  # Order 3 (higher = stronger, but maye oscillation),
             for col in telemetry_cols:                             # Cutoff 0.05 (lower = stronger)
                 for uav in df["uav_id"].unique():
                     mask = df["uav_id"] == uav

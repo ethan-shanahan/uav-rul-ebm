@@ -4,10 +4,10 @@ import numpy as np
 # ---------------------------------------------------------
 # 1) CSVs laden
 # ---------------------------------------------------------
-train_df      = pd.read_csv("../data/preprocessed/preprocessed_train.csv")
-test_df       = pd.read_csv("../data/preprocessed/preprocessed_test.csv")
-grad_train_df = pd.read_csv("../data/preprocessed/gradient_train.csv")
-grad_test_df  = pd.read_csv("../data/preprocessed/gradient_test.csv")
+train_df      = pd.read_csv("../data/preprocessed/normal preprocessed/preprocessed_train.csv")
+test_df       = pd.read_csv("../data/preprocessed/normal preprocessed/preprocessed_test.csv")
+grad_train_df = pd.read_csv("../data/preprocessed/normal preprocessed/gradient_train.csv")
+grad_test_df  = pd.read_csv("../data/preprocessed/normal preprocessed/gradient_test.csv")
 
 # ---------------------------------------------------------
 # 2) UAV-Liste mischen

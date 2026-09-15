@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 # 0) Daten einlesen
 # ---------------------------------------------------------
 # Passe die Pfade/Dateinamen an deine Struktur an
-merged_train = pd.read_csv("train-test-data/merged_train_final.csv")
-merged_val = pd.read_csv("train-test-data/merged_val_final.csv")
-merged_val_cut = pd.read_csv("train-test-data/merged_val_cut_final.csv")
-merged_test = pd.read_csv("train-test-data/merged_test_final.csv")
+merged_train = pd.read_csv("train-test-data/normal preprocessed/merged_train_final.csv")
+merged_val = pd.read_csv("train-test-data/normal preprocessed/merged_val_final.csv")
+merged_val_cut = pd.read_csv("train-test-data/normal preprocessed/merged_val_cut_final.csv")
+merged_test = pd.read_csv("train-test-data/normal preprocessed/merged_test_final.csv")
 
 # ---------------------------------------------------------
 # 1) Feature-Spalten definieren
@@ -22,10 +22,10 @@ feature_cols = (
     [f"grad_merge_{i}" for i in range(6)]           #number of merged gradient channels
 )
 
-timesteps = 100  # Anzahl vergangener flight_cycles pro Sample
-feature_dim = len(feature_cols)
+timesteps = 200  # Anzahl vergangener flight_cycles pro Sample
+feature_dim = len(feature_cols) #für nicht merged durch
 
-MODEL_TYPE = "den_bat"      # oder "cnn_gru" oder "small_gru"
+MODEL_TYPE = "gru"      # oder "cnn_gru" oder "small_gru"
 
 
 # ---------------------------------------------------------
@@ -130,7 +130,7 @@ def build_model(model_type: str, timesteps: int, feature_dim: int):
         raise ValueError(f"Unbekannter model_type: {model_type}")
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(3e-1),
+        optimizer=tf.keras.optimizers.Adam(1e-4),
         loss="mse",
         metrics=["mae"]
     )
@@ -155,7 +155,7 @@ history = {
     "r2_val": []
 }
 
-EPOCHS = 30
+EPOCHS = 75
 BATCH = 64
 
 for epoch in range(EPOCHS):
@@ -171,8 +171,21 @@ for epoch in range(EPOCHS):
     val_cut_loss = model.evaluate(X_val_cut, y_val_cut, verbose=0)[0]
 
     y_val_cut_pred = model.predict(X_val_cut, verbose=0).flatten()
+
+    df_val_cut_pred = pd.DataFrame({
+        "uav_id": val_cut_ids,
+        "y_true": y_val_cut,
+        "y_pred": y_val_cut_pred
+    })
+
+    # ➜ Nur die letzte Sequenz pro UAV nehmen
+    df_last = df_val_cut_pred.groupby("uav_id").tail(1)
+
+    r2_val_cut = r2_score(df_last["y_true"], df_last["y_pred"])
+
+
     # R² berechnen
-    r2_val_cut = r2_score(y_val_cut, y_val_cut_pred)
+    #r2_val_cut = r2_score(y_val_cut, y_val_cut_pred)
 
     y_val_pred = model.predict(X_val, verbose=0).flatten()
     r2_val = r2_score(y_val, y_val_pred)
