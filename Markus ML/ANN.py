@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 # 0) Daten einlesen
 # ---------------------------------------------------------
 # Passe die Pfade/Dateinamen an deine Struktur an
-merged_train = pd.read_csv("train-test-data/normal preprocessed/merged_train_final.csv")
-merged_val = pd.read_csv("train-test-data/normal preprocessed/merged_val_final.csv")
-merged_val_cut = pd.read_csv("train-test-data/normal preprocessed/merged_val_cut_final.csv")
-merged_test = pd.read_csv("train-test-data/normal preprocessed/merged_test_final.csv")
+merged_train = pd.read_csv("train-test-data/merged_train_final.csv")
+merged_val = pd.read_csv("train-test-data/merged_val_final.csv")
+merged_val_cut = pd.read_csv("train-test-data/merged_val_cut_final.csv")
+merged_test = pd.read_csv("train-test-data/merged_test_final.csv")
 
 # ---------------------------------------------------------
 # 1) Feature-Spalten definieren
@@ -22,11 +22,13 @@ feature_cols = (
     [f"grad_merge_{i}" for i in range(6)]           #number of merged gradient channels
 )
 
-timesteps = 200  # Anzahl vergangener flight_cycles pro Sample
-feature_dim = len(feature_cols) #für nicht merged durch
+timesteps = 150  # Anzahl vergangener flight_cycles pro Sample
+feature_dim = len(feature_cols)
 
 MODEL_TYPE = "gru"      # oder "cnn_gru" oder "small_gru"
 
+EPOCHS = 35
+BATCH = 64
 
 # ---------------------------------------------------------
 # 2) Funktion zum Erstellen von Sequenzen pro UAV
@@ -113,13 +115,13 @@ def build_model(model_type: str, timesteps: int, feature_dim: int):
             layers.Input(shape=(timesteps, feature_dim)),
 
             # CNN über die Zeitachse (flight_cycles)
-            layers.Conv1D(filters=64, kernel_size=5, padding="same", activation="relu"),
-            layers.Conv1D(filters=64, kernel_size=5, padding="same", activation="relu"),
+            layers.Conv1D(filters=128, kernel_size=5, padding="same", activation="relu"),
+            layers.Conv1D(filters=128, kernel_size=5, padding="same", activation="relu"),
             layers.MaxPooling1D(pool_size=2),
 
             # GRU auf den gefilterten Sequenzen
-            layers.GRU(128, return_sequences=True),
-            layers.GRU(64, return_sequences=False),
+            layers.GRU(256, return_sequences=True),
+            layers.GRU(128, return_sequences=False),
 
             layers.Dropout(0.2),
             layers.Dense(64, activation="relu"),
@@ -155,8 +157,7 @@ history = {
     "r2_val": []
 }
 
-EPOCHS = 75
-BATCH = 64
+
 
 for epoch in range(EPOCHS):
     hist = model.fit(
@@ -203,25 +204,47 @@ for epoch in range(EPOCHS):
         f"ValCut={val_cut_loss:.4f}  "
         f"R2_ValCut={r2_val_cut:.4f}"
     )
+    if val_cut_loss < 50 or r2_val_cut > 0.99:
+        print("Training end, good loss or R2")
+        break
 
 # ---------------------------------------------------------
-# 6) R² Verlauf plotten
+# 6) R² Verlauf plotten & speichern
 # ---------------------------------------------------------
 plt.figure(figsize=(10,5))
-plt.plot(history["r2_val"])
-plt.plot(history["r2_val_cut"])
+plt.plot(history["r2_val"], label="R² Val")
+plt.plot(history["r2_val_cut"], label="R² Val-Cut")
 plt.xlabel("Epoch")
 plt.ylabel("R²")
 plt.title("R² Verlauf (Val & Val-Cut)")
-plt.show()
+plt.legend()
+plt.tight_layout()
+plt.savefig("r2_verlauf.png", dpi=300, bbox_inches="tight")
+plt.close()
 
 # ---------------------------------------------------------
-# 7) Modell auf Test anwenden
+# 7) Loss-Kurven plotten & speichern
+# ---------------------------------------------------------
+plt.figure(figsize=(10,5))
+plt.plot(history["train_loss"], label="Train Loss")
+plt.plot(history["val_loss"], label="Val Loss")
+plt.plot(history["val_cut_loss"], label="Val-Cut Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.title("Loss Verlauf (Train / Val / Val-Cut)")
+plt.legend()
+plt.tight_layout()
+plt.savefig("loss_verlauf.png", dpi=300, bbox_inches="tight")
+plt.close()
+
+
+# ---------------------------------------------------------
+# 8) Modell auf Test anwenden
 # ---------------------------------------------------------
 y_pred_test = model.predict(X_test).flatten()
 
 # ---------------------------------------------------------
-# 8) Test-RUL speichern
+# 9) Test-RUL speichern
 # ---------------------------------------------------------
 df_test_pred = pd.DataFrame({
     "id": uav_test_ids,

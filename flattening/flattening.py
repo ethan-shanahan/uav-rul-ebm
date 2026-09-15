@@ -82,7 +82,7 @@ def run_flattening():
 
 
         # === Plotten ===
-        fig, axes = plt.subplots(2, 3, figsize=(22, 18))
+        fig, axes = plt.subplots(2, 4, figsize=(22, 18))
         axes = axes.flatten()
 
         uavs = df["uav_id"].unique()

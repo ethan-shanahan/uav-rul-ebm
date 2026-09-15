@@ -4,10 +4,10 @@ import numpy as np
 # ---------------------------------------------------------
 # 1) CSVs laden
 # ---------------------------------------------------------
-train_df      = pd.read_csv("../data/preprocessed/normal preprocessed/preprocessed_train.csv")
-test_df       = pd.read_csv("../data/preprocessed/normal preprocessed/preprocessed_test.csv")
-grad_train_df = pd.read_csv("../data/preprocessed/normal preprocessed/gradient_train.csv")
-grad_test_df  = pd.read_csv("../data/preprocessed/normal preprocessed/gradient_test.csv")
+train_df      = pd.read_csv("../data/preprocessed/preprocessed_train.csv")
+test_df       = pd.read_csv("../data/preprocessed/preprocessed_test.csv")
+grad_train_df = pd.read_csv("../data/preprocessed/gradient_train.csv")
+grad_test_df  = pd.read_csv("../data/preprocessed/gradient_test.csv")
 
 # ---------------------------------------------------------
 # 2) UAV-Liste mischen
@@ -22,6 +22,7 @@ val_uavs   = set(uavs[split_idx:])
 
 print("Train UAVs:", len(train_uavs), train_uavs)
 print("Val UAVs:", len(val_uavs), val_uavs)
+print(train_df)
 
 # ---------------------------------------------------------
 # 3) UAV-Level-Split anwenden

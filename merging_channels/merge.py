@@ -23,8 +23,10 @@ def run_merge():
         merge3 = ["telemetry_06", "telemetry_11", "telemetry_12"]
         merge4 = ["telemetry_13", "telemetry_22"]
         merge5 = ["telemetry_19", "telemetry_21"]
+        merge6 = ["telemetry_01", "telemetry_04", "telemetry_09", "telemetry_10"]
+        merge7 = ["telemetry_02", "telemetry_05"]
 
-        merges = [merge0, merge1, merge2, merge3, merge4, merge5]
+        merges = [merge0, merge1, merge2, merge3, merge4, merge5, merge6, merge7]
 
         df_merged = df.copy()
 
@@ -41,7 +43,7 @@ def run_merge():
         df_merged.to_csv(output_csv[i], index=False)
 
         # === Plotten ===
-        fig, axes = plt.subplots(2, 3, figsize=(22, 18))
+        fig, axes = plt.subplots(2, 4, figsize=(22, 18))
         axes = axes.flatten()
 
         uavs = df["uav_id"].unique()
