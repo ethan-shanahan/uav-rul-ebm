@@ -217,3 +217,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Custom
+scrap/
+slides/
+data/_SPARE_
+notebooks/
