@@ -3,14 +3,14 @@ from pathlib import Path
 import seaborn as sb
 from sklearn.feature_selection import VarianceThreshold
 
-from uav_rul_ebm.utils import *
+from scrap.utils_deprecated import *
 
 PROJECT_ROOT = Path.cwd()
 TRAIN_PATH = PROJECT_ROOT / "data" / "raw" / "train.csv"
 TEST_PATH = PROJECT_ROOT / "data" / "raw" / "test.csv"
 PLOT_DIR = PROJECT_ROOT / "eda" / "plots"
 
-PROTOTYPING = True
+PROTOTYPING = False
 
 # Raw
 raw, train_raw, test_raw = load_data(TRAIN_PATH, TEST_PATH, PROTOTYPING)
@@ -23,20 +23,20 @@ data = raw.drop(columns=base_telemetries).join(
     .fit_transform(raw[base_telemetries])
 )
 print("plotting...")
-sb.displot(data=data, x="telemetry_01", stat="density", common_norm=True, row="split")
-# sb.displot(
-#     data=data,
-#     x="telemetry_01",
-#     kind="kde",
-#     common_norm=True,
-#     common_grid=True,
-#     fill=True,
-#     row="split",
-#     hue="uav_id",
-#     legend=False,
-#     height=6,
-#     aspect=2,
-# )
+# sb.displot(data=data, x="telemetry_01", stat="density", common_norm=True, row="split")
+sb.displot(
+    data=data,
+    x="telemetry_01",
+    kind="kde",
+    common_norm=True,
+    common_grid=True,
+    fill=True,
+    row="split",
+    hue="uav_id",
+    legend=False,
+    height=6,
+    aspect=2,
+)
 print("showing...")
 plt.show()
 # plotting

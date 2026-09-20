@@ -15,7 +15,7 @@ with app.setup:
     from sklearn.pipeline import Pipeline
 
     from uav_rul_ebm import new_trans as trans
-    from uav_rul_ebm.utils import telemetry_columns
+    from scrap.utils_deprecated import telemetry_columns
 
     PROJECT_ROOT = Path.cwd()
     TRAIN_PATH = PROJECT_ROOT / "data" / "raw" / "train.csv"
@@ -35,11 +35,21 @@ def _():
     pp = Pipeline(
         [
             ("variance threshold", trans.VarianceThreshold(verbose=True)),
-            ("outlier nullifier", trans.VerticalHampelFilter(rolling_window_size=30, n_sigmas=5, verbose=False)),
-            ("defect nullifier", trans.HorizontalHampelFilter(init_window_size=40, n_sigmas=5, verbose=True)),
-            ("imputer", trans.HGBIImputer())
+            (
+                "outlier nullifier",
+                trans.VerticalHampelFilter(
+                    rolling_window_size=30, n_sigmas=5, verbose=False
+                ),
+            ),
+            (
+                "defect nullifier",
+                trans.HorizontalHampelFilter(
+                    init_window_size=40, n_sigmas=5, verbose=True
+                ),
+            ),
+            ("imputer", trans.HGBIImputer()),
         ],
-        verbose=True
+        verbose=True,
     )
     return (pp,)
 
@@ -82,10 +92,14 @@ def _():
 
 @app.cell
 def _(test, test_raw, train, train_raw):
-    df_train_raw = train_raw.assign(split="train"); df_train_raw = df_train_raw.assign(state="raw")
-    df_test_raw = test_raw.assign(split="test"); df_test_raw = df_test_raw.assign(state="raw")
-    df_train = train.assign(split="train"); df_train = df_train.assign(state="processed")
-    df_test = test.assign(split="test"); df_test = df_test.assign(state="processed")
+    df_train_raw = train_raw.assign(split="train")
+    df_train_raw = df_train_raw.assign(state="raw")
+    df_test_raw = test_raw.assign(split="test")
+    df_test_raw = df_test_raw.assign(state="raw")
+    df_train = train.assign(split="train")
+    df_train = df_train.assign(state="processed")
+    df_test = test.assign(split="test")
+    df_test = df_test.assign(state="processed")
     data = pd.concat([df_train_raw, df_test_raw, df_train, df_test], ignore_index=True)
     return
 
@@ -95,7 +109,7 @@ def _():
     # tlm = "telemetry_05"
     # sb.relplot(
     #     kind = "line",
-    #     data=data, x="flight_cycle", y=tlm, 
+    #     data=data, x="flight_cycle", y=tlm,
     #     hue="uav_id", row="state", col="split",
     #     alpha=0.33, legend=False
     # )
@@ -108,7 +122,7 @@ def _():
     #     print(f"Plotting: {t}.png")
     #     plot = sb.relplot(
     #         kind = "line",
-    #         data=data, x="flight_cycle", y=t, 
+    #         data=data, x="flight_cycle", y=t,
     #         hue="uav_id", row="state", col="split",
     #         alpha=0.33, legend=False
     #     )
@@ -127,11 +141,11 @@ def _():
     # outliers = data \
     #     .loc[data["state"] == "raw"].reset_index() \
     #     .loc[
-    #         pd.concat([is_train_outlier, is_test_outlier], ignore_index=True).any(axis=1), 
+    #         pd.concat([is_train_outlier, is_test_outlier], ignore_index=True).any(axis=1),
     #         ["uav_id", "flight_cycle", "split", t]
     #     ]
     # sb.relplot(
-    #     data=outliers, x="flight_cycle", y=t, 
+    #     data=outliers, x="flight_cycle", y=t,
     #     hue="uav_id", col="split",
     #     alpha=0.33, legend=False,
     #     # height=6, aspect=1
@@ -148,11 +162,11 @@ def _():
     #     outliers = data \
     #         .loc[data["state"] == "raw"].reset_index() \
     #         .loc[
-    #             pd.concat([is_train_outlier, is_test_outlier], ignore_index=True).any(axis=1), 
+    #             pd.concat([is_train_outlier, is_test_outlier], ignore_index=True).any(axis=1),
     #             ["uav_id", "flight_cycle", "split", t]
     #         ]
     #     plot = sb.relplot(
-    #         data=outliers, x="flight_cycle", y=t, 
+    #         data=outliers, x="flight_cycle", y=t,
     #         hue="uav_id", col="split",
     #         alpha=0.33, legend=False,
     #         height=6, aspect=1

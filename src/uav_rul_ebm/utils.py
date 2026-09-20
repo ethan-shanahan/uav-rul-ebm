@@ -1,5 +1,8 @@
+import hashlib
+import json
 import pickle
 import random
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -52,6 +55,44 @@ def save_pipeline(path: Path, pipeline: Pipeline, config: Config) -> None:
             },
             file,
         )
+
+
+def config_fingerprint(config: Config) -> str:
+    """Return a stable fingerprint for model and preprocessing settings."""
+    payload = asdict(config)
+    payload.pop("artifact_path", None)
+    payload.pop("prediction_path", None)
+    payload.pop("reuse_artifact", None)
+    payload.pop("verbose", None)
+    encoded = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def save_artifact(path: Path, payload: dict, config: Config) -> None:
+    """Persist fitted pipelines and the configuration used to create them."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    bundle = {
+        "format": 2,
+        "fingerprint": config_fingerprint(config),
+        **payload,
+    }
+    with path.open("wb") as file:
+        pickle.dump(bundle, file)
+
+
+def load_artifact(path: Path, config: Config) -> dict:
+    """Load an artifact and reject incompatible configuration settings."""
+    with path.open("rb") as file:
+        bundle = pickle.load(file)
+    if bundle.get("format") != 2:
+        raise ValueError(
+            "Saved artifact has no ensemble configuration metadata; retrain it "
+            "with the current workflow"
+        )
+    expected = config_fingerprint(config)
+    if bundle.get("fingerprint") != expected:
+        raise ValueError("Saved artifact was created with a different configuration")
+    return bundle
 
 
 def load_pipeline(path: Path, config: Config) -> Pipeline:
